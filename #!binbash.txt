@@ -1,0 +1,187 @@
+#!/bin/bash
+echo -e "\n"
+H="`hostname -f`"
+echo "******************************************************************************************"
+echo -e "\t\tApache Webserver Management ON ["${H^^}"]"
+echo "******************************************************************************************"
+
+OS="`cat /etc/os-release  | grep PRETTY_NAME | awk -F "=" {'print $2'}`"
+echo -e "OS_VERSION=$OS"
+
+############################### Defined Actions ##############################################
+Ver="`rpm -q httpd |awk -F "module" {'print $1'}`" 
+
+Install() {
+		rpm -q httpd >/dev/null 
+        if [[ $? -gt 0 ]]; then
+        sudo yum install httpd -y >/dev/null
+        sudo systemctl enable httpd >/dev/null 2>&1
+        Ver="`rpm -q httpd |awk -F "module" {'print $1'}`"
+echo -e "
+══════════════════════════════════════════════
+      APACHE INSTALLATION IS COMPLETE. 
+      APACHE VERSION = ${Ver^^}
+══════════════════════════════════════════════ \n"
+		else
+echo -e "
+══════════════════════════════════════════════
+  APACHE IS ALREADY INSTALLED 
+  APACHE VERSION = ${Ver^^}
+══════════════════════════════════════════════ \n"
+		fi
+}
+
+Delete() {
+		rpm -q httpd >/dev/null 
+        if [[ $? -eq 0 ]]; then
+        sudo systemctl stop httpd >/dev/null
+        sudo systemctl disable httpd >/dev/null 2>&1
+        sudo yum remove httpd -y >/dev/null         
+echo -e "
+══════════════════════════════════════════════
+      APACHE HTTPD IS UNINSTALLED. 
+══════════════════════════════════════════════ \n"
+		else
+        
+echo -e "
+══════════════════════════════════════════════
+      PACKAGE APACHE HTTPD IS NOT INSTALLED. 
+══════════════════════════════════════════════ \n"
+        fi
+}
+
+Start() {
+		rpm -q httpd >/dev/null 
+        if [[ $? -eq 0 ]]; then
+        sudo systemctl start httpd >/dev/null
+echo -e "
+═════════════════════════════════════════════
+      APACHE HTTPD STARTED. 
+══════════════════════════════════════════════ \n"
+		fi
+        }
+
+Status() {
+		sudo systemctl status httpd | grep running >/dev/null
+        if [[ $? -eq 0 ]]; then
+        STS="`sudo systemctl status httpd | grep Active | awk -F ";" {'print $1'} | awk -F "Active:" {'print $2'}`">/dev/null
+echo -e "
+════════════════════════════════════════════════════════════════
+	${STS^^}
+════════════════════════════════════════════════════════════════ \n"
+		else
+        STP="`sudo systemctl status httpd | grep Active | awk -F ";" {'print $1'} | awk -F "Active:" {'print $2'}`">/dev/null
+echo -e "
+════════════════════════════════════════════════════════════════
+	${STP^^}
+════════════════════════════════════════════════════════════════ \n"        
+		fi
+        }
+
+Stop() {
+		rpm -q httpd >/dev/null 
+        if [[ $? -eq 0 ]]; then
+        sudo systemctl stop httpd >/dev/null
+echo -e "
+══════════════════════════════════════════════
+      APACHE HTTPD STOPPED. 
+══════════════════════════════════════════════ \n"
+		fi
+        }
+        
+Configure() {
+IP="`hostname -i`"
+MTD="Listen"
+PRT="80"
+AHC="/etc/httpd/conf"
+AHF="httpd.conf"
+SVNM="`hostname -f`"
+
+		sudo systemctl status httpd | grep $IP
+        if [[ $? -gt 0 ]]; then
+        sudo systemctl stop httpd >/dev/null
+        sudo cp "$AHC/$AHF" "$AHC/$AHF."$(date +%Y-%m-%d)""
+        sudo sed -i "s/$MTD $PRT/$MTD $IP:$PRT/" "$AHC/$AHF"
+        sudo systemctl start httpd >/dev/null
+        sudo firewall-cmd --permanent --zone=public --add-port=$PRT/tcp >/dev/null 2>&1
+        sudo firewall-cmd --reload >/dev/null 2>&1
+CNF="`sudo systemctl status httpd | grep $IP | grep -i server | awk -F "]:" {'print $2'}`">/dev/null
+echo -e "
+════════════════════════════════════════════════════════════════
+	${CNF^^}
+════════════════════════════════════════════════════════════════ \n"
+		else
+        CNF="`sudo systemctl status httpd | grep $IP | grep -i server | awk -F "]:" {'print $2'}`">/dev/null
+echo -e "
+════════════════════════════════════════════════════════════════
+	${CNF^^}
+════════════════════════════════════════════════════════════════ \n"
+		fi
+}
+
+############################## Choose An Action From THe Above List #############################
+					### Install Action ###
+				if [[ $Action == Install ]]; then
+                	Install
+                fi
+                
+                 ### Delete Action ###
+                if [[ $Action == Delete ]]; then
+                	Delete
+                fi
+                
+                  ### Start Action ###
+                if [[ $Action == Start ]]; then
+                	Start
+                    Status
+                 fi
+                
+                 ### Status Action ###
+                if [[ $Action == Status ]]; then
+                rpm -q httpd >/dev/null 
+        		if [[ $? -gt 0 ]]; then
+ echo -e "
+══════════════════════════════════════════════
+      PACKAGE APACHE HTTPD IS NOT INSTALLED. 
+══════════════════════════════════════════════ \n" 
+exit 0
+                else
+echo -e "
+  APACHE VERSION = ${Ver^^}
+"
+                fi
+                Status
+                fi 
+                
+                 ### Stop Action ###
+                if [[ $Action == Stop ]]; then
+                	Stop
+                    Status
+                fi 
+                
+                	### Configure Action ###
+				if [[ $Action == Configure ]]; then
+                	Configure
+                fi
+                
+############################### WHEN NO ACTION IS CHOSEN  #######################################
+
+if [[ -z "$Action" ]]; then
+echo -e "
+ERROR:
+══════════════════════════════════════════════
+      NO ACTION SELECTED. 
+      PLEASE SELECT AN ACTION FROM PARAMETERS
+══════════════════════════════════════════════ \n"
+fi
+          
+################################## MASTER PIECE ####################################################
+
+							### All Action ###
+				if [[ $Action == All ]]; then
+                	Install
+                    Start
+					Configure
+                    Status
+                fi
+
